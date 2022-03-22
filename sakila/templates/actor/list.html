@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load utils %}
+
+{% block main-content %}
+    <div>
+        <h4>Create new actor</h4>
+        <form id="create-form">
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input name="name" class="form-control" placeholder="Alex"/>
+            </div>
+            <input type="submit" class="form-control, btn btn-success" value="Create"/>
+        </form>
+
+        <form id="edit-form" hidden class="mt-5">
+            <h4>Edit actor</h4>
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input name="name" class="form-control"/>
+            </div>
+            <input name="id" hidden/>
+            <input type="submit" class="form-control, btn btn-success" value="Update"/>
+        </form>
+    </div>
+    <br>
+    <div class="mt-5">
+        {% if not object_list %}
+            <b>No actors</b>
+        {% endif %}
+        <div id="object-list">
+            {% for obj in object_list %}
+                <div class="card">
+                    <div class="card-body">
+                        <button class="btn btn-danger" onclick="deleteObj({{ obj.id }})">Delete </button>
+                        <button class="btn btn-warning" onclick='editObj({{ obj.id }}, {"name": "{{ obj.name }}"})'>
+                            Edit</button>
+                        {{ obj.name }}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}
+{% block js %}
+    {{ block.super }}
+    <script>
+        $.ajaxSetup({
+            beforeSend: function(xhr,) {
+                xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+            }
+        });
+        const objectMapper = (obj) => {
+            return `<div class="card">
+                <div class="card-body">
+                    <button class="btn btn-danger" onclick="deleteObj(${obj.id})">Delete </button>
+                    <button class="btn btn-warning" onclick='editObj(${obj.id}, ${JSON.stringify(obj)})'>Edit</button>
+                    ${obj.name}
+                </div>
+            </div>`
+        };
+        const editObj = (id, obj, ) => {
+            const form = $('#edit-form');
+            form.attr('hidden', false);
+            form.trigger("reset");
+            Object.keys(obj).forEach(key => {
+                form.find(`[name=${key}]`).val(obj[key])
+            });
+            form.find(`[name=id]`).val(id)
+        };
+
+        const deleteObj = (id) => {
+            if (! confirm('Confirm Delete !')){
+                return
+            }
+            $.ajax({
+                url: '{% url 'actor-list' %}' + id,
+                type: 'DELETE',
+            }).done(function(data) {
+                updateList();
+            });
+        };
+        const updateList = () => {
+            $.ajax({
+                url: '{% url 'actor-list' %}',
+                type: 'GET',
+            }).done(function(data) {
+                const dataHtml = data.map(objectMapper).join('');
+                $('#object-list').html(dataHtml);
+            });
+        };
+        $('#edit-form').on('submit', function (e) {
+            e.preventDefault();
+            let form = this;
+            let data = {};
+            $(this).serializeArray().forEach(x => data[x.name] = x.value);
+
+            $.ajax({
+                url: '{% url 'actor-list' %}' + data.id + '/',
+                type: 'PATCH',
+                dataType: 'json',
+                data: data
+            }).done(function(data) {
+                $(form).trigger("reset");
+                $(form).attr('hidden', true);
+                updateList();
+            });
+
+        })
+        $('#create-form').on('submit', function (e) {
+            e.preventDefault();
+            let form = this;
+            let data = {};
+            $(this).serializeArray().forEach(x => data[x.name] = x.value);
+
+            $.ajax({
+                url: '{% url 'actor-list' %}',
+                type: 'POST',
+                dataType: 'json',
+                data: data
+            }).done(function(data) {
+                $(form).trigger("reset");
+                updateList();
+            });
+        })
+    </script>
+{% endblock %}
